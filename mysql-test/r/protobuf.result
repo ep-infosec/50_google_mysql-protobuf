@@ -1,0 +1,611 @@
+# Test of the PROTOBUF data type.
+# ----------------------------------------------------------------------
+CREATE TABLE protobuf(protobuf int);
+INSERT INTO protobuf(protobuf) VALUES (1);
+SELECT protobuf FROM protobuf;
+protobuf
+1
+DROP TABLE protobuf;
+CREATE TABLE t1 (p protobuf "");
+ERROR 22032: Invalid PROTO definition: '' for column 'p'.
+CREATE TABLE t1 (p protobuf "message M { optional string s = 1;");
+ERROR 22032: Invalid PROTO definition: 'message M { optional string s = 1;' for column 'p'.
+CREATE TABLE t1 (i INT, p protobuf "message Person {
+  optional int64 id = 1;
+  optional string name = 2;
+
+  message PhoneNumber {
+    optional string number = 1;
+    optional string other = 2;
+  }
+
+  message Address {
+    optional int32 number = 1;
+    optional string street = 2;
+    optional int32 zipcode = 3;
+  }
+
+  message Info {
+    optional PhoneNumber phone = 1;
+    optional Address address = 2;
+  }
+
+  optional Info info = 3;
+
+  }") ENGINE=InnoDB;
+SHOW CREATE TABLE t1;
+Table	Create Table
+t1	CREATE TABLE `t1` (
+  `i` int(11) DEFAULT NULL,
+  `p` protobuf 'message Person {
+  optional int64 id = 1;
+  optional string name = 2;
+
+  message PhoneNumber {
+    optional string number = 1;
+    optional string other = 2;
+  }
+
+  message Address {
+    optional int32 number = 1;
+    optional string street = 2;
+    optional int32 zipcode = 3;
+  }
+
+  message Info {
+    optional PhoneNumber phone = 1;
+    optional Address address = 2;
+  }
+
+  optional Info info = 3;
+
+  }'  DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=latin1
+INSERT INTO t1 VALUES(0, 'id: 0 name: "Alice"');
+INSERT INTO t1 VALUES(1, 'name: "Bob"');
+INSERT INTO t1 VALUES(2, 'id: 2
+                          name: "Charlie"
+                          info {
+                            phone { number: "123" other: "321" }
+                         }
+                         ');
+INSERT INTO t1 VALUES(3, 'id: 3
+                          name: "Dean"
+                          info {
+                            phone { number: "123" other: "3" }
+                            address { number: 1901 zipcode: 94043 }
+                         }
+                         ');
+INSERT INTO t1 VALUES(4, 'id: 4
+                          name: "Emma"
+                          info {
+                            phone { number: "444" other: "94043" }
+                            address { number: 1901 zipcode: 94043 street: "Rock St"}
+                         }
+                         ');
+INSERT INTO t1 VALUES(5, 'id: 5
+                          name: "Incognito"
+                          info { phone{} address{} }
+                         ');
+INSERT INTO t1 VALUES(6, 'info {}');
+INSERT INTO t1 VALUES(7, '');
+INSERT INTO t1 VALUES(8, NULL);
+INSERT INTO t1 VALUES(0, 42);
+ERROR 22032: Invalid PROTO text: "not a PROTOBUF text, may need CAST" at position 0 in value (or column) 'column t1.p'.
+INSERT INTO t1 VALUES(0, true);
+ERROR 22032: Invalid PROTO text: "not a PROTOBUF text, may need CAST" at position 0 in value (or column) 'column t1.p'.
+INSERT INTO t1 VALUES(0, "random text");
+ERROR 22032: Invalid PROTO text: "not a PROTOBUF text, may need CAST" at position 0 in value (or column) 'column t1.p'.
+INSERT INTO t1 VALUES(0, "name: 42");
+ERROR 22032: Invalid PROTO text: "not a PROTOBUF text, may need CAST" at position 0 in value (or column) 'column t1.p'.
+SELECT * from t1;
+i	p
+0	id: 0 name: "Alice" 
+1	name: "Bob" 
+2	id: 2 name: "Charlie" info {   phone {     number: "123"     other: "321"   } } 
+3	id: 3 name: "Dean" info {   phone {     number: "123"     other: "3"   }   address {     number: 1901     zipcode: 94043   } } 
+4	id: 4 name: "Emma" info {   phone {     number: "444"     other: "94043"   }   address {     number: 1901     street: "Rock St"     zipcode: 94043   } } 
+5	id: 5 name: "Incognito" info {   phone {   }   address {   } } 
+6	info { } 
+7	
+8	NULL
+SELECT p[id] from t1;
+p[id]
+0
+NULL
+2
+3
+4
+5
+NULL
+NULL
+NULL
+SELECT p[name] from t1;
+p[name]
+Alice
+Bob
+Charlie
+Dean
+Emma
+Incognito
+NULL
+NULL
+NULL
+SELECT p[info] from t1;
+p[info]
+NULL
+NULL
+phone {   number: "123"   other: "321" } 
+phone {   number: "123"   other: "3" } address {   number: 1901   zipcode: 94043 } 
+phone {   number: "444"   other: "94043" } address {   number: 1901   street: "Rock St"   zipcode: 94043 } 
+phone { } address { } 
+
+NULL
+NULL
+SELECT p[info.phone] from t1;
+p[info.phone]
+NULL
+NULL
+number: "123" other: "321" 
+number: "123" other: "3" 
+number: "444" other: "94043" 
+
+NULL
+NULL
+NULL
+SELECT p[info.address] from t1;
+p[info.address]
+NULL
+NULL
+NULL
+number: 1901 zipcode: 94043 
+number: 1901 street: "Rock St" zipcode: 94043 
+
+NULL
+NULL
+NULL
+SELECT p[info.phone.number] from t1;
+p[info.phone.number]
+NULL
+NULL
+123
+123
+444
+NULL
+NULL
+NULL
+NULL
+SELECT p[info.phone.other] from t1;
+p[info.phone.other]
+NULL
+NULL
+321
+3
+94043
+NULL
+NULL
+NULL
+NULL
+SELECT p[info.address.number] from t1;
+p[info.address.number]
+NULL
+NULL
+NULL
+1901
+1901
+NULL
+NULL
+NULL
+NULL
+SELECT p[info.address.street] from t1;
+p[info.address.street]
+NULL
+NULL
+NULL
+NULL
+Rock St
+NULL
+NULL
+NULL
+NULL
+SELECT p[info.address.zipcode] from t1;
+p[info.address.zipcode]
+NULL
+NULL
+NULL
+94043
+94043
+NULL
+NULL
+NULL
+NULL
+SELECT * from t1 where p[id] is NULL;
+i	p
+1	name: "Bob" 
+6	info { } 
+7	
+8	NULL
+SELECT * from t1 where p[info] is NULL;
+i	p
+0	id: 0 name: "Alice" 
+1	name: "Bob" 
+7	
+8	NULL
+SELECT * from t1 where p[info] = '';
+i	p
+6	info { } 
+SELECT * from t1 where p[info.address.zipcode] is not NULL;
+i	p
+3	id: 3 name: "Dean" info {   phone {     number: "123"     other: "3"   }   address {     number: 1901     zipcode: 94043   } } 
+4	id: 4 name: "Emma" info {   phone {     number: "444"     other: "94043"   }   address {     number: 1901     street: "Rock St"     zipcode: 94043   } } 
+SELECT * from t1 where p = NULL;
+i	p
+SELECT * from t1 where p[info] = NULL;
+i	p
+SELECT * from t1 where p[name] = "Alice";
+i	p
+0	id: 0 name: "Alice" 
+SELECT * from t1 where p[name] > "Dean";
+i	p
+4	id: 4 name: "Emma" info {   phone {     number: "444"     other: "94043"   }   address {     number: 1901     street: "Rock St"     zipcode: 94043   } } 
+5	id: 5 name: "Incognito" info {   phone {   }   address {   } } 
+SELECT * from t1 where p[id] = "5";
+i	p
+5	id: 5 name: "Incognito" info {   phone {   }   address {   } } 
+SELECT * from t1 where p[info.address.number] = "1901";
+i	p
+3	id: 3 name: "Dean" info {   phone {     number: "123"     other: "3"   }   address {     number: 1901     zipcode: 94043   } } 
+4	id: 4 name: "Emma" info {   phone {     number: "444"     other: "94043"   }   address {     number: 1901     street: "Rock St"     zipcode: 94043   } } 
+SELECT * from t1 where p[id] = 5;
+i	p
+5	id: 5 name: "Incognito" info {   phone {   }   address {   } } 
+SELECT * from t1 where p[info.address.number] = 1901;
+i	p
+3	id: 3 name: "Dean" info {   phone {     number: "123"     other: "3"   }   address {     number: 1901     zipcode: 94043   } } 
+4	id: 4 name: "Emma" info {   phone {     number: "444"     other: "94043"   }   address {     number: 1901     street: "Rock St"     zipcode: 94043   } } 
+SELECT * from t1 where p[id] = p[id];
+i	p
+0	id: 0 name: "Alice" 
+2	id: 2 name: "Charlie" info {   phone {     number: "123"     other: "321"   } } 
+3	id: 3 name: "Dean" info {   phone {     number: "123"     other: "3"   }   address {     number: 1901     zipcode: 94043   } } 
+4	id: 4 name: "Emma" info {   phone {     number: "444"     other: "94043"   }   address {     number: 1901     street: "Rock St"     zipcode: 94043   } } 
+5	id: 5 name: "Incognito" info {   phone {   }   address {   } } 
+SELECT * from t1 where p[info] = p[info];
+i	p
+2	id: 2 name: "Charlie" info {   phone {     number: "123"     other: "321"   } } 
+3	id: 3 name: "Dean" info {   phone {     number: "123"     other: "3"   }   address {     number: 1901     zipcode: 94043   } } 
+4	id: 4 name: "Emma" info {   phone {     number: "444"     other: "94043"   }   address {     number: 1901     street: "Rock St"     zipcode: 94043   } } 
+5	id: 5 name: "Incognito" info {   phone {   }   address {   } } 
+6	info { } 
+SELECT * from t1 where p[id] = p[info.phone.other];
+i	p
+3	id: 3 name: "Dean" info {   phone {     number: "123"     other: "3"   }   address {     number: 1901     zipcode: 94043   } } 
+SELECT * from t1 where p[name] < "Dean";
+i	p
+0	id: 0 name: "Alice" 
+1	name: "Bob" 
+2	id: 2 name: "Charlie" info {   phone {     number: "123"     other: "321"   } } 
+SELECT * from t1 where p[info.phone.other] = p[info.address.zipcode];
+i	p
+4	id: 4 name: "Emma" info {   phone {     number: "444"     other: "94043"   }   address {     number: 1901     street: "Rock St"     zipcode: 94043   } } 
+SELECT * from t1 where p[info] = "phone { } address {}";
+i	p
+5	id: 5 name: "Incognito" info {   phone {   }   address {   } } 
+SELECT * from t1 where "   address {     }phone {        }" = p[info];
+i	p
+5	id: 5 name: "Incognito" info {   phone {   }   address {   } } 
+SELECT * from t1 where p[info.phone] = " other:   '94043'    number:'444' ";
+i	p
+4	id: 4 name: "Emma" info {   phone {     number: "444"     other: "94043"   }   address {     number: 1901     street: "Rock St"     zipcode: 94043   } } 
+SELECT * from t1 where " other:   '94043'    number:'444' " = p[info.phone];
+i	p
+4	id: 4 name: "Emma" info {   phone {     number: "444"     other: "94043"   }   address {     number: 1901     street: "Rock St"     zipcode: 94043   } } 
+SELECT p[random_text] from t1;
+ERROR 22032: Invalid PROTO field: Field 'random_text' not found in the PROTO definition for column 'test.t1.p'.
+SELECT p[`where`] from t1;
+ERROR 22032: Invalid PROTO field: Field 'where' not found in the PROTO definition for column 'test.t1.p'.
+SELECT proto_extract(p, "id") from t1;
+proto_extract(p, "id")
+0
+NULL
+2
+3
+4
+5
+NULL
+NULL
+NULL
+SELECT proto_extract(p, "info.address.zipcode") from t1;
+proto_extract(p, "info.address.zipcode")
+NULL
+NULL
+NULL
+94043
+94043
+NULL
+NULL
+NULL
+NULL
+SELECT proto_extract(p, "info", "address") from t1;
+proto_extract(p, "info", "address")
+NULL
+NULL
+NULL
+number: 1901 zipcode: 94043 
+number: 1901 street: "Rock St" zipcode: 94043 
+
+NULL
+NULL
+NULL
+SELECT proto_extract(p, NULL) from t1;
+proto_extract(p, NULL)
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+NULL
+SELECT proto_extract(p, "") from t1;
+proto_extract(p, "")
+id: 0 name: "Alice" 
+name: "Bob" 
+id: 2 name: "Charlie" info {   phone {     number: "123"     other: "321"   } } 
+id: 3 name: "Dean" info {   phone {     number: "123"     other: "3"   }   address {     number: 1901     zipcode: 94043   } } 
+id: 4 name: "Emma" info {   phone {     number: "444"     other: "94043"   }   address {     number: 1901     street: "Rock St"     zipcode: 94043   } } 
+id: 5 name: "Incognito" info {   phone {   }   address {   } } 
+info { } 
+
+NULL
+SELECT proto_extract(p, "random_text") from t1;
+ERROR 22032: Invalid PROTO field: Field 'random_text' not found in the PROTO definition for column 'test.t1.p'.
+SELECT proto_extract(p, "info.address.zipcode.") from t1;
+ERROR 22032: Invalid PROTO field: Field '' not found in the PROTO definition for column 'test.t1.p'.
+SELECT proto_extract(p, "info", "address", "") from t1;
+ERROR 22032: Invalid PROTO field: Field '' not found in the PROTO definition for column 'test.t1.p'.
+SELECT proto_extract(p, "info", "address", NULL) from t1;
+ERROR 22032: Invalid PROTO field: Field 'NULL' not found in the PROTO definition for column 'test.t1.p'.
+UPDATE t1 SET p = 'id: 7 name: "George"
+                   info { phone { number: "777" other: "7" }
+                          address { street: "Amph Pkwy" zipcode: 12345 number: 1600 }
+                        }' where i = 7;
+UPDATE t1 SET p = 'id: 8 name: "Harry"
+                   info { phone { number: "888" other: "8" }
+                          address { street: "Amph Pkwy" zipcode: 12345 number: 1600 }
+                        }' where i = 8;
+SELECT * from t1 where i >= 7;
+i	p
+7	id: 7 name: "George" info {   phone {     number: "777"     other: "7"   }   address {     number: 1600     street: "Amph Pkwy"     zipcode: 12345   } } 
+8	id: 8 name: "Harry" info {   phone {     number: "888"     other: "8"   }   address {     number: 1600     street: "Amph Pkwy"     zipcode: 12345   } } 
+UPDATE t1 SET p[name] = "Henrietta" where p[name] = "Harry";
+UPDATE t1 SET p[info.phone.number] = "898989" where p[name] = "Henrietta";
+SELECT * from t1 where i >= 7;
+i	p
+7	id: 7 name: "George" info {   phone {     number: "777"     other: "7"   }   address {     number: 1600     street: "Amph Pkwy"     zipcode: 12345   } } 
+8	id: 8 name: "Henrietta" info {   phone {     number: "898989"     other: "8"   }   address {     number: 1600     street: "Amph Pkwy"     zipcode: 12345   } } 
+UPDATE t1 SET p[info.address.street] = NULL where p[name] = "George";
+UPDATE t1 SET p[info.phone.number] = NULL where p[name] = "Henrietta";
+SELECT * from t1 where i >= 7;
+i	p
+7	id: 7 name: "George" info {   phone {     number: "777"     other: "7"   }   address {     number: 1600     zipcode: 12345   } } 
+8	id: 8 name: "Henrietta" info {   phone {     other: "8"   }   address {     number: 1600     street: "Amph Pkwy"     zipcode: 12345   } } 
+UPDATE t1 SET p[info] = NULL where p[name] = "George";
+UPDATE t1 SET p[info.phone] = NULL where p[name] = "Henrietta";
+SELECT * from t1 where i >= 7;
+i	p
+7	id: 7 name: "George" 
+8	id: 8 name: "Henrietta" info {   address {     number: 1600     street: "Amph Pkwy"     zipcode: 12345   } } 
+UPDATE t1 SET p[info] = 'address { zipcode: 94043} phone {}' where p[name] = "George";
+UPDATE t1 SET p[info.phone] = 'number: "1234"' where p[name] = "Henrietta";
+SELECT * from t1 where i >= 7;
+i	p
+7	id: 7 name: "George" info {   phone {   }   address {     zipcode: 94043   } } 
+8	id: 8 name: "Henrietta" info {   phone {     number: "1234"   }   address {     number: 1600     street: "Amph Pkwy"     zipcode: 12345   } } 
+UPDATE t1 SET p[info.random_field] = "" where p[name] = "George";
+ERROR 22032: Invalid PROTO field: Field 'info.random_field' not found in the PROTO definition for column 'test.t1.p'.
+UPDATE t1 SET p[info.phone.a] = 123 where p[name] = "George";
+ERROR 22032: Invalid PROTO field: Field 'info.phone.a' not found in the PROTO definition for column 'test.t1.p'.
+UPDATE t1 SET p[info] = "wrong protobuf" where p[name] = "George";
+ERROR 22032: Invalid PROTO text: "not a PROTOBUF text, may need CAST" at position 0 in value (or column) 'wrong protobuf'.
+UPDATE t1 SET p[info.address] = 123 where p[name] = "George";
+ERROR 22032: Invalid PROTO text: "not a PROTOBUF text, may need CAST" at position 0 in value (or column) '123'.
+UPDATE t1 SET p[info.address] = p[info] where p[name] = "Henrietta";
+ERROR 22032: Invalid PROTO text: "not a PROTOBUF text, may need CAST" at position 0 in value (or column) 'phone {   number: "1234" } address {   number: 1600   street: "Amph Pkwy"   zipcode: 12345 } '.
+UPDATE t1 SET p[info.address.zipcode] = p where p[name] = "Henrietta";
+ERROR 22018: Invalid PROTOBUF value for CAST to INTEGER: Cannot CAST PROTOBUF from column p.
+SELECT * from t1 where i >= 7;
+i	p
+7	id: 7 name: "George" info {   phone {   }   address {     zipcode: 94043   } } 
+8	id: 8 name: "Henrietta" info {   phone {     number: "1234"   }   address {     number: 1600     street: "Amph Pkwy"     zipcode: 12345   } } 
+UPDATE t1 SET p[info] = NULL where p[name] = "George";
+SELECT * from t1 where i >= 7;
+i	p
+7	id: 7 name: "George" 
+8	id: 8 name: "Henrietta" info {   phone {     number: "1234"   }   address {     number: 1600     street: "Amph Pkwy"     zipcode: 12345   } } 
+UPDATE t1 SET p[info] = p[info] where p[name] = "George";
+SELECT * from t1 where i >= 7;
+i	p
+7	id: 7 name: "George" 
+8	id: 8 name: "Henrietta" info {   phone {     number: "1234"   }   address {     number: 1600     street: "Amph Pkwy"     zipcode: 12345   } } 
+UPDATE t1 SET p[info.phone] = p[info.phone] where p[name] = "Henrietta";
+SELECT * from t1 where i >= 7;
+i	p
+7	id: 7 name: "George" 
+8	id: 8 name: "Henrietta" info {   phone {     number: "1234"   }   address {     number: 1600     street: "Amph Pkwy"     zipcode: 12345   } } 
+UPDATE t1 SET p[info.phone] = p[info.address] where p[name] = "George";
+SELECT * from t1 where i >= 7;
+i	p
+7	id: 7 name: "George" info { } 
+8	id: 8 name: "Henrietta" info {   phone {     number: "1234"   }   address {     number: 1600     street: "Amph Pkwy"     zipcode: 12345   } } 
+CREATE TABLE t2(i int,
+p protobuf 'message M { optional int64 i = 1; optional string s = 2;}',
+q protobuf 'message M { optional int64 i = 1; }');
+INSERT INTO t2 VALUES(0, 'i: 0 s: "str0"', 'i: 0');
+INSERT INTO t2 VALUES(1, 'i: 1 s: "str1"', '');
+INSERT INTO t2 VALUES(2, 'i: 2 s: "str2"', NULL);
+INSERT INTO t2 VALUES(3, 'i: 3', 'i: 3');
+INSERT INTO t2 VALUES(4, 's: "str4"', 'i: 4');
+INSERT INTO t2 VALUES(5, '', 'i: 5');
+INSERT INTO t2 VALUES(6, NULL, 'i: 6');
+SELECT * from t2;
+i	p	q
+0	i: 0 s: "str0" 	i: 0 
+1	i: 1 s: "str1" 	
+2	i: 2 s: "str2" 	NULL
+3	i: 3 	i: 3 
+4	s: "str4" 	i: 4 
+5		i: 5 
+6	NULL	i: 6 
+ALTER TABLE t2 drop column q;
+SELECT * FROM t2;
+i	p
+0	i: 0 s: "str0" 
+1	i: 1 s: "str1" 
+2	i: 2 s: "str2" 
+3	i: 3 
+4	s: "str4" 
+5	
+6	NULL
+ALTER TABLE t2 add column q protobuf 'message M { optional int64 i = 1; }';
+UPDATE t2 SET q[i] = p[i];
+SELECT * FROM t2;
+i	p	q
+0	i: 0 s: "str0" 	i: 0 
+1	i: 1 s: "str1" 	i: 1 
+2	i: 2 s: "str2" 	i: 2 
+3	i: 3 	i: 3 
+4	s: "str4" 	i: 0 
+5		i: 0 
+6	NULL	i: 0 
+UPDATE t2 SET q = p;
+ERROR 22032: Invalid PROTO text: "not a PROTOBUF text, may need CAST" at position 0 in value (or column) 'column t2.q'.
+ALTER TABLE t2 modify column q protobuf 'message M { optional int64 i = 1; optional string s = 2;}';
+UPDATE t2 SET q = p;
+SELECT * from t2;
+i	p	q
+0	i: 0 s: "str0" 	i: 0 s: "str0" 
+1	i: 1 s: "str1" 	i: 1 s: "str1" 
+2	i: 2 s: "str2" 	i: 2 s: "str2" 
+3	i: 3 	i: 3 
+4	s: "str4" 	s: "str4" 
+5		
+6	NULL	NULL
+UPDATE t2 SET q[i] = p;
+ERROR 22018: Invalid PROTOBUF value for CAST to INTEGER: Cannot CAST PROTOBUF from column p.
+CREATE TABLE t3(i int,
+p protobuf 'message M { repeated int64 iarr = 1; repeated string sarr = 2; }');
+INSERT INTO t3 VALUES(0, 'iarr: [1, 2, 3] sarr: ["str1", "str2"]');
+INSERT INTO t3 VALUES(1, 'iarr: [11] sarr: ["str11", "str12"]');
+INSERT INTO t3 VALUES(2, 'sarr: ["str21", "str22"]');
+INSERT INTO t3 VALUES(3, 'iarr: [31, 32, 33] sarr: ["str31"]');
+INSERT INTO t3 VALUES(4, 'iarr: [41, 42, 43]');
+INSERT INTO t3 VALUES(5, 'iarr: [51, 52] sarr: ["51", "52"]');
+INSERT INTO t3 VALUES(6, '');
+INSERT INTO t3 VALUES(7, NULL);
+SELECT * from t3;
+i	p
+0	iarr: 1 iarr: 2 iarr: 3 sarr: "str1" sarr: "str2" 
+1	iarr: 11 sarr: "str11" sarr: "str12" 
+2	sarr: "str21" sarr: "str22" 
+3	iarr: 31 iarr: 32 iarr: 33 sarr: "str31" 
+4	iarr: 41 iarr: 42 iarr: 43 
+5	iarr: 51 iarr: 52 sarr: "51" sarr: "52" 
+6	
+7	NULL
+SELECT p[iarr] from t3;
+p[iarr]
+[1, 2, 3]
+[11]
+NULL
+[31, 32, 33]
+[41, 42, 43]
+[51, 52]
+NULL
+NULL
+SELECT p[sarr] from t3;
+p[sarr]
+"str1", "str2"
+"str11", "str12"
+"str21", "str22"
+"str31"
+NULL
+"51", "52"
+NULL
+NULL
+SELECT p[iarr][1] from t3;
+p[iarr][1]
+2
+NULL
+NULL
+32
+42
+52
+NULL
+NULL
+SELECT p[sarr][1] from t3;
+p[sarr][1]
+str2
+str12
+str22
+NULL
+NULL
+52
+NULL
+NULL
+SELECT * from t3 where p[iarr][0] = 31;
+i	p
+3	iarr: 31 iarr: 32 iarr: 33 sarr: "str31" 
+SELECT * from t3 where p[sarr][0] = "str1";
+i	p
+0	iarr: 1 iarr: 2 iarr: 3 sarr: "str1" sarr: "str2" 
+SELECT * from t3 where p[iarr] = p[iarr];
+i	p
+0	iarr: 1 iarr: 2 iarr: 3 sarr: "str1" sarr: "str2" 
+1	iarr: 11 sarr: "str11" sarr: "str12" 
+3	iarr: 31 iarr: 32 iarr: 33 sarr: "str31" 
+4	iarr: 41 iarr: 42 iarr: 43 
+5	iarr: 51 iarr: 52 sarr: "51" sarr: "52" 
+SELECT * from t3 where p[iarr][2] = p[iarr][2];
+i	p
+0	iarr: 1 iarr: 2 iarr: 3 sarr: "str1" sarr: "str2" 
+3	iarr: 31 iarr: 32 iarr: 33 sarr: "str31" 
+4	iarr: 41 iarr: 42 iarr: 43 
+SELECT * from t3 where p[iarr][0] = p[sarr][0];
+i	p
+5	iarr: 51 iarr: 52 sarr: "51" sarr: "52" 
+SELECT * from t3 where p[iarr][0] = p[iarr][1] - 1;
+i	p
+0	iarr: 1 iarr: 2 iarr: 3 sarr: "str1" sarr: "str2" 
+3	iarr: 31 iarr: 32 iarr: 33 sarr: "str31" 
+4	iarr: 41 iarr: 42 iarr: 43 
+5	iarr: 51 iarr: 52 sarr: "51" sarr: "52" 
+SELECT * from t3 where p[iarr][0] = p[sarr][1] - 1;
+i	p
+5	iarr: 51 iarr: 52 sarr: "51" sarr: "52" 
+SELECT * from t3 where p[iarr] = 42;
+i	p
+SELECT * from t3 where p[iarr] = "abc";
+i	p
+SELECT * from t3 where p[iarr][4] is not NULL;
+i	p
+SELECT * from t3 where p[sarr][4] is not NULL;
+i	p
+ALTER TABLE t3 modify column p protobuf 'message M { repeated int64 iarr = 1; repeated string sarr = 2; optional int64 i = 3; }';
+UPDATE t3 SET p[i] = p[iarr][0];
+SELECT * from t3;
+i	p
+0	iarr: 1 iarr: 2 iarr: 3 sarr: "str1" sarr: "str2" i: 1 
+1	iarr: 11 sarr: "str11" sarr: "str12" i: 11 
+2	sarr: "str21" sarr: "str22" i: 0 
+3	iarr: 31 iarr: 32 iarr: 33 sarr: "str31" i: 31 
+4	iarr: 41 iarr: 42 iarr: 43 i: 41 
+5	iarr: 51 iarr: 52 sarr: "51" sarr: "52" i: 51 
+6	i: 0 
+7	i: 0 
+SELECT * from t3 where p[i][0] = 0;
+ERROR 22032: Invalid PROTOBUF repeated field: Field 'i' from column 'test.t3.p' is not a repeated field.
+DROP TABLE t1;
+DROP TABLE t2;
+DROP TABLE t3;
